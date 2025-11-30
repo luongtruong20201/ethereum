@@ -1,9 +1,11 @@
 package util
 
 import (
+	"bytes"
 	"fmt"
 	"math/big"
 	"reflect"
+	"strconv"
 )
 
 type Value struct {
@@ -67,6 +69,32 @@ func (val *Value) Uint() uint64 {
 	return 0
 }
 
+func (val *Value) Int() int64 {
+	if Val, ok := val.Val.(int8); ok {
+		return int64(Val)
+	} else if Val, ok := val.Val.(int16); ok {
+		return int64(Val)
+	} else if Val, ok := val.Val.(int32); ok {
+		return int64(Val)
+	} else if Val, ok := val.Val.(int64); ok {
+		return Val
+	} else if Val, ok := val.Val.(int); ok {
+		return int64(Val)
+	} else if Val, ok := val.Val.(float32); ok {
+		return int64(Val)
+	} else if Val, ok := val.Val.(float64); ok {
+		return int64(Val)
+	} else if Val, ok := val.Val.([]byte); ok {
+		return new(big.Int).SetBytes(Val).Int64()
+	} else if Val, ok := val.Val.(*big.Int); ok {
+		return Val.Int64()
+	} else if Val, ok := val.Val.(string); ok {
+		n, _ := strconv.Atoi(Val)
+		return int64(n)
+	}
+	return 0
+}
+
 func (val *Value) Byte() byte {
 	if Val, ok := val.Val.(byte); ok {
 		return Val
@@ -80,6 +108,8 @@ func (val *Value) BigInt() *big.Int {
 		return b
 	} else if a, ok := val.Val.(*big.Int); ok {
 		return a
+	} else if a, ok := val.Val.(string); ok {
+		return Big(a)
 	} else {
 		return big.NewInt(int64(val.Uint()))
 	}
@@ -105,8 +135,9 @@ func (val *Value) Bytes() []byte {
 		return []byte(s)
 	} else if s, ok := val.Val.(*big.Int); ok {
 		return s.Bytes()
+	} else {
+		return big.NewInt(val.Int()).Bytes()
 	}
-	return []byte{}
 }
 
 func (val *Value) Err() error {
@@ -189,9 +220,7 @@ func (val *Value) Cmp(o *Value) bool {
 }
 
 func (self *Value) DeepCmp(o *Value) bool {
-	a := NewValue(self.BigInt())
-	b := NewValue(o.BigInt())
-	return a.Cmp(b)
+	return bytes.Compare(self.Bytes(), o.Bytes()) == 0
 }
 
 func (val *Value) Encode() []byte {
@@ -207,7 +236,6 @@ func NewValueFromBytes(data []byte) *Value {
 	if len(data) != 0 {
 		value := NewValue(data)
 		value.Decode()
-
 		return value
 	}
 	return NewValue(nil)

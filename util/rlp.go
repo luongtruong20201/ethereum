@@ -6,9 +6,17 @@ import (
 	"math/big"
 )
 
-type RlpEncodable interface {
+type RlpEncode interface {
 	RlpEncode() []byte
+}
+
+type RlpEncodeDecode interface {
+	RlpEncode
 	RlpValue() []interface{}
+}
+
+func Rlp(encoder RlpEncode) []byte {
+	return encoder.RlpEncode()
 }
 
 type RlpEncoder struct {
@@ -106,6 +114,8 @@ func Encode(object interface{}) []byte {
 			} else {
 				buff.Write(Encode(t.Bytes()))
 			}
+		case Bytes:
+			buff.Write(Encode([]byte(t)))
 		case []byte:
 			if len(t) == 1 && t[0] <= 0x7f {
 				buff.Write(t)

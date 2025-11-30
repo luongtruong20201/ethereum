@@ -9,6 +9,21 @@ import (
 	"strings"
 )
 
+type Bytes []byte
+
+func (b Bytes) String() string {
+	return string(b)
+}
+
+func DeleteFromByteSlice(s [][]byte, hash []byte) [][]byte {
+	for i, h := range s {
+		if bytes.Compare(h, hash) == 0 {
+			return append(s[:i], s[i+1:]...)
+		}
+	}
+	return s
+}
+
 func NumberToBytes(num interface{}, bits int) []byte {
 	buf := new(bytes.Buffer)
 	err := binary.Write(buf, binary.BigEndian, num)
@@ -140,6 +155,22 @@ func LeftPadBytes(slice []byte, l int) []byte {
 	return padded
 }
 
+func LeftPadString(str string, l int) string {
+	if l < len(str) {
+		return str
+	}
+	zeros := Bytes2Hex(make([]byte, (l-len(str))/2))
+	return zeros + str
+}
+
+func RightPadString(str string, l int) string {
+	if l < len(str) {
+		return str
+	}
+	zeros := Bytes2Hex(make([]byte, (l-len(str))/2))
+	return str + zeros
+}
+
 func Address(slice []byte) (addr []byte) {
 	if len(slice) < 20 {
 		addr = LeftPadBytes(slice, 20)
@@ -149,5 +180,12 @@ func Address(slice []byte) (addr []byte) {
 		addr = slice
 	}
 	addr = CopyBytes(addr)
+	return
+}
+
+func ByteSliceToInterface(slice [][]byte) (ret []interface{}) {
+	for _, i := range slice {
+		ret = append(ret, i)
+	}
 	return
 }
