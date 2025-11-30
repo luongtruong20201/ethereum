@@ -22,8 +22,7 @@ var Config *ConfigManager
 
 func ReadConfig(ConfigFile string, Datadir string, EnvPrefix string) *ConfigManager {
 	if Config == nil {
-		_, err := os.Stat(ConfigFile)
-		if err != nil && os.IsNotExist(err) {
+		if !FileExist(ConfigFile) {
 			fmt.Printf("config file '%s' doesn't exist, creating it\n", ConfigFile)
 			os.Create(ConfigFile)
 		}

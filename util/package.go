@@ -10,9 +10,8 @@ import (
 )
 
 type Manifest struct {
-	Entry  string
-	Width  int
-	Height int
+	Entry         string
+	Height, Width int
 }
 
 type ExtPackage struct {
@@ -78,14 +77,10 @@ func OpenPackage(fn string) (*ExtPackage, error) {
 	if entryIndex < 0 {
 		return nil, fmt.Errorf("entry file not found: '%s'", manifest.Entry)
 	}
-
 	f, err = ReadFile(r.File[entryIndex])
 	if err != nil {
 		return nil, err
 	}
-	extPackage := &ExtPackage{
-		EntryHtml: string(f),
-		Manifest:  manifest,
-	}
+	extPackage := &ExtPackage{string(f), manifest}
 	return extPackage, nil
 }

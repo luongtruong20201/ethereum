@@ -1,7 +1,6 @@
 package util
 
 import (
-	"bytes"
 	"fmt"
 	"math/big"
 	"reflect"
@@ -35,12 +34,8 @@ func (val *Value) IsNil() bool {
 func (val *Value) Len() int {
 	if data, ok := val.Val.([]interface{}); ok {
 		return len(data)
-	} else if data, ok := val.Val.([]byte); ok {
-		return len(data)
-	} else if data, ok := val.Val.(string); ok {
-		return len(data)
 	}
-	return 0
+	return len(val.Bytes())
 }
 
 func (val *Value) Raw() interface{} {
@@ -65,7 +60,9 @@ func (val *Value) Uint() uint64 {
 	} else if Val, ok := val.Val.(uint); ok {
 		return uint64(Val)
 	} else if Val, ok := val.Val.([]byte); ok {
-		return ReadVarint(bytes.NewReader(Val))
+		return new(big.Int).SetBytes(Val).Uint64()
+	} else if Val, ok := val.Val.(*big.Int); ok {
+		return Val.Uint64()
 	}
 	return 0
 }
@@ -106,8 +103,17 @@ func (val *Value) Bytes() []byte {
 		return []byte{s}
 	} else if s, ok := val.Val.(string); ok {
 		return []byte(s)
+	} else if s, ok := val.Val.(*big.Int); ok {
+		return s.Bytes()
 	}
 	return []byte{}
+}
+
+func (val *Value) Err() error {
+	if err, ok := val.Val.(error); ok {
+		return err
+	}
+	return nil
 }
 
 func (val *Value) Slice() []interface{} {
@@ -140,6 +146,11 @@ func (val *Value) IsStr() bool {
 	return val.Type() == reflect.String
 }
 
+func (self *Value) IsErr() bool {
+	_, ok := self.Val.(error)
+	return ok
+}
+
 func (val *Value) IsList() bool {
 	_, ok := val.Val.([]interface{})
 	return ok
@@ -162,14 +173,14 @@ func (val *Value) Get(idx int) *Value {
 	return NewValue(nil)
 }
 
-func (v *Value) Copy() *Value {
-	switch val := v.Val.(type) {
+func (self *Value) Copy() *Value {
+	switch val := self.Val.(type) {
 	case *big.Int:
 		return NewValue(new(big.Int).Set(val))
 	case []byte:
 		return NewValue(CopyBytes(val))
 	default:
-		return NewValue(v.Val)
+		return NewValue(self.Val)
 	}
 }
 
@@ -177,19 +188,27 @@ func (val *Value) Cmp(o *Value) bool {
 	return reflect.DeepEqual(val.Val, o.Val)
 }
 
+func (self *Value) DeepCmp(o *Value) bool {
+	a := NewValue(self.BigInt())
+	b := NewValue(o.BigInt())
+	return a.Cmp(b)
+}
+
 func (val *Value) Encode() []byte {
 	return Encode(val.Val)
 }
 
-func (val *Value) Decode() {
-	v, _ := Decode(val.Bytes(), 0)
-	val.Val = v
+func (self *Value) Decode() {
+	v, _ := Decode(self.Bytes(), 0)
+	self.Val = v
 }
 
 func NewValueFromBytes(data []byte) *Value {
 	if len(data) != 0 {
-		data, _ := Decode(data, 0)
-		return NewValue(data)
+		value := NewValue(data)
+		value.Decode()
+
+		return value
 	}
 	return NewValue(nil)
 }
@@ -223,6 +242,52 @@ func (val *Value) AppendList() *Value {
 func (val *Value) Append(v interface{}) *Value {
 	val.Val = append(val.Slice(), v)
 	return val
+}
+
+const (
+	valOpAdd = iota
+	valOpDiv
+	valOpMul
+	valOpPow
+	valOpSub
+)
+
+func (self *Value) doOp(op int, other interface{}) *Value {
+	left := self.BigInt()
+	right := NewValue(other).BigInt()
+	switch op {
+	case valOpAdd:
+		self.Val = left.Add(left, right)
+	case valOpDiv:
+		self.Val = left.Div(left, right)
+	case valOpMul:
+		self.Val = left.Mul(left, right)
+	case valOpPow:
+		self.Val = left.Exp(left, right, Big0)
+	case valOpSub:
+		self.Val = left.Sub(left, right)
+	}
+	return self
+}
+
+func (self *Value) Add(other interface{}) *Value {
+	return self.doOp(valOpAdd, other)
+}
+
+func (self *Value) Sub(other interface{}) *Value {
+	return self.doOp(valOpSub, other)
+}
+
+func (self *Value) Div(other interface{}) *Value {
+	return self.doOp(valOpDiv, other)
+}
+
+func (self *Value) Mul(other interface{}) *Value {
+	return self.doOp(valOpMul, other)
+}
+
+func (self *Value) Pow(other interface{}) *Value {
+	return self.doOp(valOpPow, other)
 }
 
 type ValueIterator struct {

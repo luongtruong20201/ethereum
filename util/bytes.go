@@ -30,25 +30,27 @@ func BytesToNumber(b []byte) uint64 {
 	return number
 }
 
-func ReadVarint(reader *bytes.Reader) (ret uint64) {
-	if reader.Len() == 8 {
-		var num uint64
-		binary.Read(reader, binary.BigEndian, &num)
-		ret = uint64(num)
-	} else if reader.Len() == 4 {
+func ReadVarInt(buff []byte) (ret uint64) {
+	switch l := len(buff); {
+	case l > 4:
+		d := LeftPadBytes(buff, 8)
+		binary.Read(bytes.NewReader(d), binary.BigEndian, &ret)
+	case l > 2:
 		var num uint32
-		binary.Read(reader, binary.BigEndian, &num)
+		d := LeftPadBytes(buff, 4)
+		binary.Read(bytes.NewReader(d), binary.BigEndian, &num)
 		ret = uint64(num)
-	} else if reader.Len() == 2 {
+	case l > 1:
 		var num uint16
-		binary.Read(reader, binary.BigEndian, &num)
+		d := LeftPadBytes(buff, 2)
+		binary.Read(bytes.NewReader(d), binary.BigEndian, &num)
 		ret = uint64(num)
-	} else {
+	default:
 		var num uint8
-		binary.Read(reader, binary.BigEndian, &num)
+		binary.Read(bytes.NewReader(buff), binary.BigEndian, &num)
 		ret = uint64(num)
 	}
-	return ret
+	return
 }
 
 func BinaryLength(num int) int {
@@ -93,13 +95,31 @@ func FormatData(data string) []byte {
 	}
 	d := new(big.Int)
 	if data[0:1] == "\"" && data[len(data)-1:] == "\"" {
-		return RightPadBytes([]byte(data), 32)
+		return RightPadBytes([]byte(data[1:len(data)-1]), 32)
 	} else if len(data) > 1 && data[:2] == "0x" {
 		d.SetBytes(Hex2Bytes(data[2:]))
 	} else {
 		d.SetString(data, 0)
 	}
 	return BigToBytes(d, 256)
+}
+
+func ParseData(data ...interface{}) (ret []byte) {
+	for _, item := range data {
+		switch t := item.(type) {
+		case string:
+			var str []byte
+			if IsHex(t) {
+				str = Hex2Bytes(t[2:])
+			} else {
+				str = []byte(t)
+			}
+			ret = append(ret, RightPadBytes(str, 32)...)
+		case []byte:
+			ret = append(ret, LeftPadBytes(t, 32)...)
+		}
+	}
+	return
 }
 
 func RightPadBytes(slice []byte, l int) []byte {
@@ -118,4 +138,16 @@ func LeftPadBytes(slice []byte, l int) []byte {
 	padded := make([]byte, l)
 	copy(padded[l-len(slice):], slice)
 	return padded
+}
+
+func Address(slice []byte) (addr []byte) {
+	if len(slice) < 20 {
+		addr = LeftPadBytes(slice, 20)
+	} else if len(slice) > 20 {
+		addr = slice[len(slice)-20:]
+	} else {
+		addr = slice
+	}
+	addr = CopyBytes(addr)
+	return
 }

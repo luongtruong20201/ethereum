@@ -4,12 +4,6 @@ import (
 	"math/big"
 )
 
-var (
-	BigInt0  *big.Int = big.NewInt(0)
-	BigTrue  *big.Int = big.NewInt(1)
-	BigFalse *big.Int = big.NewInt(0)
-)
-
 func BigPow(a, b int) *big.Int {
 	c := new(big.Int)
 	c.Exp(big.NewInt(int64(a)), big.NewInt(int64(b)), big.NewInt(0))
@@ -42,6 +36,13 @@ func BigCopy(src *big.Int) *big.Int {
 
 func BigMax(x, y *big.Int) *big.Int {
 	if x.Cmp(y) <= 0 {
+		return y
+	}
+	return x
+}
+
+func BigMin(x, y *big.Int) *big.Int {
+	if x.Cmp(y) >= 0 {
 		return y
 	}
 	return x
